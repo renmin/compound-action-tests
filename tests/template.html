@@ -28,7 +28,7 @@ Notes: Include this file as a base, or copy its structure when making new tests.
     .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:600}
     .badge.ok{background:var(--ok);color:#fff}
     .badge.fail{background:var(--fail);color:#fff}
-    .big-result{display:flex;align-items:center;justify-content:center;height:120px;border-radius:12px;font-weight:800;font-size:32px;letter-spacing:1px}
+    .big-result{display:flex;align-items:center;justify-content:center;height:140px;border-radius:12px;font-weight:800;font-size:32px;letter-spacing:1px}
     .big-result.ok{background:var(--ok);color:#fff}
     .big-result.fail{background:var(--fail);color:#fff}
     .kvs{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center}
@@ -38,26 +38,18 @@ Notes: Include this file as a base, or copy its structure when making new tests.
     .row{display:flex;justify-content:space-between;align-items:center;border:1px solid #e5e7eb;border-radius:10px;padding:8px 10px}
     .row .name{font-weight:600}
     .row .exp{color:#6b7280}
-    .btn{appearance:none;border:0;background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}
+    .btn{appearance:none;border:0;background:#111;color:#fff;padding:16px 22px;border-radius:12px;font-weight:800;cursor:pointer;font-size:18px}
     .btn.secondary{background:#334155}
     .toolbar{display:flex;gap:8px;flex-wrap:wrap}
     .log{height:220px;overflow:auto;background:#0b1020;color:#cbe0ff;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:12px;border-radius:10px;padding:10px}
     .qr{display:flex;align-items:center;justify-content:center;min-height:160px}
+    .qr canvas{image-rendering: pixelated; max-width: 95vw; max-height: 85vh; width:auto; height:auto}
     /* Four-corner fiducials for geometry checks */
-    .fid{position:fixed;width:28px;height:28px;z-index:1}
-    .fid.tl{left:8px;top:8px;background:conic-gradient(#000 0 25%,#fff 0 50%,#000 0 75%,#fff 0)}
-    .fid.tr{right:8px;top:8px;background:repeating-linear-gradient(45deg,#000 0 6px,#fff 6px 12px)}
-    .fid.bl{left:8px;bottom:8px;background:repeating-linear-gradient(135deg,#000 0 6px,#fff 6px 12px)}
-    .fid.br{right:8px;bottom:8px;background:radial-gradient(#000 40%,#fff 41%)}
     /* Validation area placeholder style */
     .stage{height:360px;border:2px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#64748b}
   </style>
 </head>
 <body>
-  <div class="fid tl" aria-hidden="true"></div>
-  <div class="fid tr" aria-hidden="true"></div>
-  <div class="fid bl" aria-hidden="true"></div>
-  <div class="fid br" aria-hidden="true"></div>
 
   <div class="wrap">
     <h1>Screenshot‑Verifiable Test Template</h1>
@@ -170,7 +162,7 @@ Notes: Include this file as a base, or copy its structure when making new tests.
       const text = JSON.stringify(payload)
       $qr.innerHTML = ''
       // Use high error correction to survive scaling in screenshots
-      new QRCode($qr, { text, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.H })
+      (() => {const size=Math.max(480, Math.min(Math.floor(Math.min(window.innerWidth, window.innerHeight)*0.85), 1200)); new QRCode($qr, { text, width: size, height: size, correctLevel: QRCode.CorrectLevel.H }); })()
       log('QR encoded length=' + text.length)
     }
 
@@ -186,13 +178,9 @@ Notes: Include this file as a base, or copy its structure when making new tests.
     setMeta('startedAt', state.startedAt)
 
     // Expose small API for test pages
+    if(window.innerWidth!==1280||window.innerHeight!==960){ log(`Window size=${window.innerWidth}x${window.innerHeight} (recommended 1280x960)`)}
     window.__TEST_API__ = { registerAssertion, log, setMeta, state }
   })()
   </script>
 </body>
 </html>
-
-
-
-
-
