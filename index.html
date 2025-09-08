@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Remote Browser Test Prototype — Index</title>
+  <style>
+    :root{ --ink:#0f172a; --muted:#475569; --bg:#f8fafc; --card:#ffffff; --link:#0ea5e9; }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:15px/1.55 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
+    .wrap{max-width:980px;margin:0 auto;padding:24px 16px}
+    h1{margin:0 0 12px;font-size:22px}
+    h2{margin:24px 0 10px;font-size:18px}
+    p{margin:8px 0}
+    code{background:#0b1220;color:#cbe0ff;padding:2px 6px;border-radius:6px;font-size:90%}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .card{background:var(--card);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:16px}
+    .muted{color:var(--muted)}
+    a[target="_blank"]{color:var(--link);text-decoration:none}
+    ul{margin:8px 0 0 18px}
+    li{margin:6px 0}
+    .kbd{display:inline-block;border:1px solid #cbd5e1;border-bottom-width:2px;background:#fff;border-radius:6px;padding:2px 6px;font-weight:700}
+    .cta{display:inline-flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    .btn{appearance:none;border:0;background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-weight:800;cursor:pointer}
+    .btn.secondary{background:#334155}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    .small{font-size:90%}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Remote Browser Test Prototype — 说明与入口</h1>
+    <p class="muted">这一套静态页面用于<strong>在仅有截图回传</strong>的前提下，验证远程鼠标/键盘动作是否正确，并把断言结果以二维码（全屏浮层）呈现，便于自动化解码。</p>
+
+    <div class="grid">
+      <div class="card">
+        <h2>① 模板页 <span class="small mono">tests/template.html</span></h2>
+        <p>通用测试模板：左侧为 <em>Run Meta</em>、<em>Run Assertions</em>、结果与日志；右侧为 <em>Validation Stage</em>（放控件与目标）。点击 <span class="kbd">Run Assertions</span> 后，弹出全屏二维码浮层，编码包含本次测试的摘要与日志片段。</p>
+        <div class="cta">
+          <a class="btn" href="./tests/template.html" target="_blank" rel="noopener">打开模板（新标签）</a>
+        </div>
+        <ul>
+          <li>推荐窗口尺寸：<strong>1280×960</strong>（页面会在日志里提示是否偏离）。</li>
+          <li>左右布局比例默认 <strong>3:7</strong>，可通过 CSS 变量 <code>--left</code>/<code>--right</code> 调整。</li>
+          <li>模板内置断言注册 API：<code>window.__TEST_API__.registerAssertion(name, expected, fn)</code></li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>② 示例页 <span class="small mono">tests/example_basic.html</span></h2>
+        <p>基于模板思路实现的简例：验证 <strong>click</strong> 目标与 <strong>type</strong> 输入。通过 URL 参数 <code>?text=hello</code> 指定期望输入（默认 <code>hello</code>）。</p>
+        <div class="cta">
+          <a class="btn" href="./tests/example_basic.html" target="_blank" rel="noopener">打开示例（新标签）</a>
+          <a class="btn secondary" href="./tests/example_basic.html?text=hello" target="_blank" rel="noopener">示例（text=hello）</a>
+        </div>
+        <ul>
+          <li>Runner 执行：点击绿色目标 → 在输入框输入期望字符串 → 点击 <span class="kbd">Run Assertions</span>。</li>
+          <li>断言包含：<code>clickTarget.clicked === true</code>、<code>input.value === &lt;expected&gt;</code>。</li>
+          <li>完成后自动弹出全屏二维码，可用于截图机读。</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>③ 截图二维码解码工具 <span class="small mono">tools/qr_decode_debugger.html</span></h2>
+        <p>将包含二维码的截图拖拽到页面，可自动识别与解码 JSON 内容；用于本地调试或离线检查。</p>
+        <div class="cta">
+          <a class="btn" href="./tools/qr_decode_debugger.html" target="_blank" rel="noopener">打开解码工具（新标签）</a>
+        </div>
+        <ul>
+          <li>若未识别到二维码：请尝试更大尺寸截图或靠近二维码区域裁剪。</li>
+          <li>二维码编码误差冗余等级：<code>H</code>（适配截图缩放）。</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h2>如何从模板创建新的测试页面</h2>
+        <ol>
+          <li><strong>复制模板：</strong>将 <span class="mono">tests/template.html</span> 复制为新文件，例如 <span class="mono">tests/test_scroll_drag.html</span>。</li>
+          <li><strong>放置控件：</strong>在右侧 <span class="mono">&lt;div id="stage" class="stage"&gt;...&lt;/div&gt;</span> 中添加测试控件（按钮、输入框、可拖拽元素、滚动容器等）。</li>
+          <li><strong>注册断言：</strong>在脚本中通过
+            <pre class="mono" style="white-space:pre-wrap">
+const { registerAssertion, log, setMeta, state } = window.__TEST_API__;
+// 示例：点击命中
+registerAssertion('click target hit', { clicked: true }, async () => ({ clicked: target.classList.contains('clicked') }));
+// 示例：文本输入匹配
+registerAssertion('typed text equals', { value: expected }, async () => ({ value: input.value }));
+            </pre>
+          </li>
+          <li><strong>触发验证：</strong>Runner 完成动作后，远程点击页面左侧的 <span class="kbd">Run Assertions</span> 按钮（或脚本中调用内部的 <span class="mono">runAssertions()</span>）。</li>
+          <li><strong>截图与机读：</strong>页面会弹出全屏二维码浮层，内部编码包含：<em>test/runId/时间/各断言 expected vs actual/是否通过/日志片段</em>。对截图使用 <em>③ 解码工具</em> 离线验证，或在 CI 中以任何二维码库解析 JSON 判分。</li>
+        </ol>
+        <p class="muted">注意：如需更改左右比例，可在样式中设置 <code>:root{ --left: 4fr; --right: 6fr; }</code>。推荐固定容器浏览器窗口大小至 <strong>1280×960</strong> 以减小渲染差异。</p>
+      </div>
+    </div>
+
+    <h2>Runner 侧推荐流程</h2>
+    <ol>
+      <li>以固定窗口 <strong>1280×960</strong> 打开目标测试页（模板/示例/自定义）。</li>
+      <li>下发 compound request 执行鼠标键盘动作（click/dblclick/scroll/move/drag/type/paste/hotkeys/wait 等）。</li>
+      <li>远程点击 <span class="kbd">Run Assertions</span>。</li>
+      <li>截取屏幕 → 将截图输送到二维码解码器 → 解析 JSON 并判定 PASS/FAIL。</li>
+    </ol>
+
+    <p class="muted small">© Test Prototype. 本页面仅作内部测试说明之用。</p>
+  </div>
+</body>
+</html>
