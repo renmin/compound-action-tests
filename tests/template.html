@@ -1,8 +1,3 @@
-<!-- =========================
-File: tests/template.html
-Purpose: Reusable static template for screenshot-verifiable UI test pages
-Notes: Include this file as a base, or copy its structure when making new tests.
-========================= -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,14 +6,9 @@ Notes: Include this file as a base, or copy its structure when making new tests.
   <title>Test Template — Screenshot-Verifiable Harness</title>
   <style>
     :root{
-      --ok:#12b886; /* green */
-      --fail:#fa5252; /* red */
-      --ink:#111;
-      --ink-dim:#555;
-      --bg:#f7f7f9;
-      --card:#fff;
+      --ok:#12b886; --fail:#fa5252; --ink:#111; --ink-dim:#555; --bg:#f7f7f9; --card:#fff;
     }
-    html,body{margin:0;height:100%;background:var(--bg);font:14px/1.4 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
+    html,body{margin:0;height:100%;background:var(--bg);font:14px/1.4 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial}
     .wrap{max-width:980px;margin:0 auto;padding:16px}
     .grid{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
     .card{background:var(--card);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:16px}
@@ -41,22 +31,24 @@ Notes: Include this file as a base, or copy its structure when making new tests.
     .btn{appearance:none;border:0;background:#111;color:#fff;padding:16px 22px;border-radius:12px;font-weight:800;cursor:pointer;font-size:18px}
     .btn.secondary{background:#334155}
     .toolbar{display:flex;gap:8px;flex-wrap:wrap}
-    .log{height:220px;overflow:auto;background:#0b1020;color:#cbe0ff;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:12px;border-radius:10px;padding:10px}
-    .qr{display:flex;align-items:center;justify-content:center;min-height:160px}
-    .qr canvas{image-rendering: pixelated; max-width: 95vw; max-height: 85vh; width:auto; height:auto}
-    /* Four-corner fiducials for geometry checks */
-    /* Validation area placeholder style */
+    .log{height:220px;overflow:auto;background:#0b1020;color:#cbe0ff;font-family:ui-monospace, Menlo, Consolas, monospace;font-size:12px;border-radius:10px;padding:10px}
+    /* Validation area placeholder style */ 
     .stage{height:360px;border:2px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#64748b}
+    /* ===== Fullscreen QR Overlay ===== */
+    .qrovl{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:9999}
+    .qrovl.show{display:flex}
+    .qrovl .qrbox{max-width:94vw;max-height:86vh;display:flex;align-items:center;justify-content:center}
+    .qrovl .qrbox canvas{image-rendering:pixelated;max-width:94vw;max-height:86vh;width:auto;height:auto;box-shadow:0 8px 30px rgba(0,0,0,.5);border-radius:12px;background:#fff}
+    .qrovl .close{position:absolute;top:16px;right:16px;width:48px;height:48px;border-radius:12px;background:#111;color:#fff;border:2px solid #334155;font-size:28px;line-height:44px;text-align:center;cursor:pointer;font-weight:800}
+    .qrovl .hint{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#9fb7ff;font:14px/1.4 ui-sans-serif,system-ui;padding:0 16px}
   </style>
 </head>
 <body>
-
   <div class="wrap">
     <h1>Screenshot‑Verifiable Test Template</h1>
     <p class="muted">Use this template to build pages that validate remote mouse/keyboard actions and render machine‑readable results.</p>
 
     <div class="grid">
-      <!-- Left: Meta & Controls -->
       <div class="card">
         <h2>Run Meta</h2>
         <div class="kvs" id="meta">
@@ -72,17 +64,14 @@ Notes: Include this file as a base, or copy its structure when making new tests.
           <button class="btn" id="btn-verify">Run Assertions</button>
           <button class="btn secondary" id="btn-reset">Reset Page</button>
         </div>
-        <p class="muted" style="margin-top:6px">Trigger from your runner after remote actions are sent. Everything below is screenshot‑visible.</p>
+        <p class="muted" style="margin-top:6px">Recommended window size: <strong>1280×960</strong>. The page will log if different.</p>
       </div>
 
-      <!-- Right: Result & Logs -->
       <div class="card">
         <div class="big-result" id="bigResult">WAITING</div>
         <div class="list" id="cases"></div>
         <h2 style="margin-top:12px">Logs</h2>
         <pre class="log" id="log"></pre>
-        <h2 style="margin-top:12px">QR Result</h2>
-        <div class="qr" id="qr"></div>
       </div>
     </div>
 
@@ -92,25 +81,30 @@ Notes: Include this file as a base, or copy its structure when making new tests.
     </div>
   </div>
 
+  <!-- Fullscreen QR Overlay -->
+  <div id="qrOverlay" class="qrovl" aria-hidden="true">
+    <button id="qrClose" class="close" title="Close">×</button>
+    <div id="qrBox" class="qrbox"></div>
+    <div class="hint">QR code enlarged for reliable screenshot decoding. Click × to close.</div>
+  </div>
+
   <!-- qrcode generator (tiny, CDN) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script>
   ;(() => {
-    // --- Minimal test harness API ---
     const state = {
       testName: new URLSearchParams(location.search).get('name') || 'Unnamed Test',
       runId: (new URLSearchParams(location.search).get('run') || (Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8))).toUpperCase(),
       startedAt: new Date().toISOString(),
-      cases: [],
-      logs: [],
-      meta: {},
+      cases: [], logs: [], meta: {},
     }
-
     const $meta = document.getElementById('meta')
     const $cases = document.getElementById('cases')
     const $log = document.getElementById('log')
     const $big = document.getElementById('bigResult')
-    const $qr = document.getElementById('qr')
+    const $qrOverlay = document.getElementById('qrOverlay')
+    const $qrBox = document.getElementById('qrBox')
+    const $qrClose = document.getElementById('qrClose')
 
     function setMeta(k,v){ state.meta[k]=v; const el=$meta.querySelector(`[data-k="${k}"]`); if(el) el.textContent=String(v) }
     function log(msg){ const line = `[${new Date().toISOString()}] ${msg}`; state.logs.push(line); $log.textContent += line + '\n'; $log.scrollTop = $log.scrollHeight }
@@ -124,61 +118,45 @@ Notes: Include this file as a base, or copy its structure when making new tests.
         $cases.appendChild(row)
       }
     }
-
     function escapeHtml(s){ return s.replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])) }
+    function deepEqual(a,b){ try{ return JSON.stringify(a)===JSON.stringify(b) }catch{ return false } }
 
     async function runAssertions(){
+      if(window.innerWidth!==1280||window.innerHeight!==960){ log(`Window size=${window.innerWidth}x${window.innerHeight} (recommended 1280x960)`) }
       let pass=0, fail=0
       for(const c of state.cases){
-        try {
-          const actual = await c.fn()
-          c.actual = actual
-          c.pass = deepEqual(actual, c.expected)
-          c.error = null
-        } catch(err){ c.pass=false; c.error=String(err) }
+        try { const actual = await c.fn(); c.actual = actual; c.pass = deepEqual(actual, c.expected); c.error = null }
+        catch(err){ c.pass=false; c.error=String(err) }
         c.pass? pass++ : fail++
       }
-      setMeta('actions', state.cases.length)
-      setMeta('pass', pass)
-      setMeta('fail', fail)
-      $big.className = 'big-result ' + (fail===0? 'ok':'fail')
-      $big.textContent = fail===0? 'PASS' : 'FAIL'
-      renderCases()
-      buildQR(fail===0)
+      setMeta('actions', state.cases.length); setMeta('pass', pass); setMeta('fail', fail)
+      $big.className = 'big-result ' + (fail===0? 'ok':'fail'); $big.textContent = fail===0? 'PASS' : 'FAIL'
+      renderCases(); buildQR(fail===0)
     }
 
     function buildQR(allPass){
       const payload = {
-        type: 'remote-browser-test',
-        version: 1,
-        test: state.testName,
-        runId: state.runId,
-        startedAt: state.startedAt,
-        endedAt: new Date().toISOString(),
-        pass: allPass,
-        summary: state.cases.map(c=>({name:c.name, pass:c.pass, expected:c.expected, actual:c.actual, error:c.error})),
-        log: state.logs.slice(-80), // truncate to last 80 lines to keep QR scannable
+        type: 'remote-browser-test', version: 1,
+        test: state.testName, runId: state.runId, startedAt: state.startedAt, endedAt: new Date().toISOString(),
+        pass: allPass, summary: state.cases.map(c=>({name:c.name, pass:c.pass, expected:c.expected, actual:c.actual, error:c.error})),
+        log: state.logs.slice(-80),
       }
       const text = JSON.stringify(payload)
-      $qr.innerHTML = ''
-      // Use high error correction to survive scaling in screenshots
-      (() => {const size=Math.max(480, Math.min(Math.floor(Math.min(window.innerWidth, window.innerHeight)*0.85), 1200)); new QRCode($qr, { text, width: size, height: size, correctLevel: QRCode.CorrectLevel.H }); })()
+      if ($qrBox) {
+        $qrBox.innerHTML=''
+        const size = Math.max(640, Math.min(Math.floor(Math.min(window.innerWidth, window.innerHeight)*0.88), 1600))
+        new QRCode($qrBox, { text, width:size, height:size, correctLevel: QRCode.CorrectLevel.H })
+      }
+      if ($qrOverlay){ $qrOverlay.classList.add('show'); $qrOverlay.setAttribute('aria-hidden','false') }
+      if ($qrClose){ $qrClose.onclick = ()=>{ $qrOverlay.classList.remove('show'); $qrOverlay.setAttribute('aria-hidden','true') } }
       log('QR encoded length=' + text.length)
     }
 
-    function deepEqual(a,b){ try{ return JSON.stringify(a)===JSON.stringify(b) }catch{ return false } }
-
-    // Wire buttons
     document.getElementById('btn-verify').addEventListener('click', runAssertions)
     document.getElementById('btn-reset').addEventListener('click', () => location.reload())
 
-    // Seed meta
-    setMeta('name', state.testName)
-    setMeta('runId', state.runId)
-    setMeta('startedAt', state.startedAt)
+    setMeta('name', state.testName); setMeta('runId', state.runId); setMeta('startedAt', state.startedAt)
 
-    // Expose small API for test pages
-    if(window.innerWidth!==1280||window.innerHeight!==960){ log(`Window size=${window.innerWidth}x${window.innerHeight} (recommended 1280x960)`)}
     window.__TEST_API__ = { registerAssertion, log, setMeta, state }
   })()
   </script>
