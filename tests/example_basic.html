@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -23,10 +23,10 @@
     .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:700}.badge.ok{background:#12b886;color:#fff}.badge.fail{background:#fa5252;color:#fff}
     /* Split layout 3:7 */ .grid{display:grid;grid-template-columns:var(--left,3fr) var(--right,7fr);gap:16px;align-items:start}
     /* Fullscreen QR overlay */ 
-    .qrovl{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:9999}
+    .qrovl{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:9999;overflow:hidden}
     .qrovl.show{display:flex}
-    .qrovl .qrbox{max-width:94vw;max-height:86vh;display:flex;align-items:center;justify-content:center}
-    .qrovl .qrbox canvas{image-rendering:pixelated;max-width:94vw;max-height:86vh;width:auto;height:auto;box-shadow:0 8px 30px rgba(0,0,0,.5);border-radius:12px;background:#fff}
+    .qrovl .qrbox{max-width:100vw;max-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 24px 56px}
+    .qrovl .qrbox canvas{image-rendering:pixelated;max-width:calc(100vw - 64px);max-height:calc(100vh - 128px);width:auto;height:auto;box-shadow:0 8px 30px rgba(0,0,0,.5);border-radius:12px;background:#fff}
     .qrovl .close{position:absolute;top:16px;right:16px;width:48px;height:48px;border-radius:12px;background:#111;color:#fff;border:2px solid #334155;font-size:28px;line-height:44px;text-align:center;cursor:pointer;font-weight:800}
     .qrovl .hint{position:absolute;bottom:16px;left:0;right:0;text-align:center;color:#9fb7ff;font:14px/1.4 ui-sans-serif,system-ui;padding:0 16px}
   </style>
@@ -118,6 +118,19 @@
       render(); buildQR(fail===0)
     }
 
+    let __qrTextCache = null;
+    function getQRSize(){
+      const margin = 120; // leave room for close button & hint
+      const maxSide = Math.min(window.innerWidth, window.innerHeight) - margin;
+      const size = Math.max(320, Math.min(1600, Math.floor(maxSide)));
+      return size;
+    }
+    function renderQRInto(box, text){
+      if(!box) return;
+      box.innerHTML='';
+      const size = getQRSize();
+      new QRCode(box, { text, width:size, height:size, correctLevel: QRCode.CorrectLevel.H });
+    }
     function buildQR(ok){
       const payload = {
         type:'remote-browser-test', version:1, test:state.testName,
@@ -127,11 +140,17 @@
         log: state.logs.slice(-80)
       }
       const text = JSON.stringify(payload)
-      if ($qrBox) { $qrBox.innerHTML=''; const size = Math.max(640, Math.min(Math.floor(Math.min(window.innerWidth, window.innerHeight)*0.88), 1600)); new QRCode($qrBox, { text, width:size, height:size, correctLevel: QRCode.CorrectLevel.H }) }
+      __qrTextCache = text;
+      renderQRInto($qrBox, text);
       if ($qrOverlay){ $qrOverlay.classList.add('show'); $qrOverlay.setAttribute('aria-hidden','false') }
       if ($qrClose){ $qrClose.onclick = ()=>{ $qrOverlay.classList.remove('show'); $qrOverlay.setAttribute('aria-hidden','true') } }
       log('QR encoded length='+text.length)
     }
+    function onQRResize(){
+      const visible = $qrOverlay.classList.contains('show');
+      if(visible && __qrTextCache){ renderQRInto($qrBox, __qrTextCache); }
+    }
+    window.addEventListener('resize', onQRResize);
 
     document.getElementById('btn-verify').addEventListener('click', run)
   })()
