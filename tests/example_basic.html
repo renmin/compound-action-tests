@@ -6,12 +6,11 @@
   <title>Example — Click + Type</title>
   <style>
     body{margin:0;font:14px/1.4 ui-sans-serif,system-ui}
-    .wrap{max-width:980px;margin:0 auto;padding:16px}
-    .grid{display:grid;grid-template-columns:320px 1fr;gap:16px}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px}
     .card{background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:16px}
     .big-result{display:flex;align-items:center;justify-content:center;height:140px;border-radius:12px;font-weight:800;font-size:32px}
     .ok{background:#12b886;color:#fff}.fail{background:#fa5252;color:#fff}
-    .stage{height:360px;border:2px dashed #cbd5e1;border-radius:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px}
+    .stage{height:560px;border:2px dashed #cbd5e1;border-radius:12px;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px}
     .target{display:flex;align-items:center;justify-content:center;border-radius:12px;background:#d3f9d8;border:2px solid #37b24d;font-weight:800;letter-spacing:.5px;cursor:pointer;user-select:none}
     .target.clicked{background:#b2f2bb}
     .box{display:flex;flex-direction:column;gap:6px}
@@ -22,7 +21,8 @@
     .log{height:220px;overflow:auto;background:#0b1020;color:#cbe0ff;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;border-radius:10px;padding:10px}
     .list{display:grid;gap:8px}.row{display:flex;justify-content:space-between;align-items:center;border:1px solid #e5e7eb;border-radius:10px;padding:8px 10px}
     .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:700}.badge.ok{background:#12b886;color:#fff}.badge.fail{background:#fa5252;color:#fff}
-    /* ===== Fullscreen QR Overlay ===== */ 
+    /* Split layout 3:7 */ .grid{display:grid;grid-template-columns:var(--left,3fr) var(--right,7fr);gap:16px;align-items:start}
+    /* Fullscreen QR overlay */ 
     .qrovl{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;align-items:center;justify-content:center;z-index:9999}
     .qrovl.show{display:flex}
     .qrovl .qrbox{max-width:94vw;max-height:86vh;display:flex;align-items:center;justify-content:center}
@@ -33,49 +33,48 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Example — Click + Type</h1>
-    <p class="muted">This example verifies two actions from your remote runner: a click on the green target, and typing a specific string into the input box.</p>
-
     <div class="grid">
-      <div class="card">
-        <h2>Run Meta</h2>
-        <div class="kvs" id="meta">
-          <div class="k">Test</div><div class="v" data-k="name">—</div>
-          <div class="k">Run ID</div><div class="v" data-k="runId">—</div>
-          <div class="k">Started</div><div class="v" data-k="startedAt">—</div>
-          <div class="k">Actions</div><div class="v" data-k="actions">0</div>
-          <div class="k">Pass</div><div class="v" data-k="pass">0</div>
-          <div class="k">Fail</div><div class="v" data-k="fail">0</div>
+      <div class="left">
+        <h1>Example — Click + Type</h1>
+        <p class="muted">This example verifies two actions from your remote runner: a click on the green target, and typing a specific string into the input box.</p>
+        <div class="card">
+          <h2>Run Meta</h2>
+          <div class="kvs" id="meta">
+            <div class="k">Test</div><div class="v" data-k="name">—</div>
+            <div class="k">Run ID</div><div class="v" data-k="runId">—</div>
+            <div class="k">Started</div><div class="v" data-k="startedAt">—</div>
+            <div class="k">Actions</div><div class="v" data-k="actions">0</div>
+            <div class="k">Pass</div><div class="v" data-k="pass">0</div>
+            <div class="k">Fail</div><div class="v" data-k="fail">0</div>
+          </div>
+          <hr />
+          <div class="toolbar">
+            <button class="btn" id="btn-verify">Run Assertions</button>
+          </div>
+          <p class="muted" style="margin-top:6px">Expected typed string via <code>?text=hello</code> (default: "hello"). Recommended window size: <strong>1280×960</strong>.</p>
         </div>
-        <hr />
-        <div class="toolbar">
-          <button class="btn" id="btn-verify">Run Assertions</button>
-          <button class="btn" id="btn-reset" onclick="location.reload()">Reset</button>
+        <div class="card">
+          <div class="big-result" id="bigResult">WAITING</div>
+          <div class="list" id="cases"></div>
+          <h2 style="margin-top:12px">Logs</h2>
+          <pre class="log" id="log"></pre>
         </div>
-        <p class="muted" style="margin-top:6px">Expected typed string via <code>?text=hello</code> (default: "hello"). Recommended window size: <strong>1280×960</strong>.</p>
       </div>
-
-      <div class="card">
-        <div class="big-result" id="bigResult">WAITING</div>
-        <div class="list" id="cases"></div>
-        <h2 style="margin-top:12px">Logs</h2>
-        <pre class="log" id="log"></pre>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:16px">
-      <h2>Validation Stage</h2>
-      <div class="stage" id="stage">
-        <div class="target" id="clickTarget" tabindex="0">CLICK ME</div>
-        <div class="box">
-          <label for="tbox"><strong>Type into this box</strong></label>
-          <input id="tbox" type="text" placeholder="type here…" style="padding:10px;border-radius:10px;border:1px solid #94a3b8;outline:none;font-size:16px" />
+      <div class="right">
+        <div class="card">
+          <h2>Validation Stage</h2>
+          <div class="stage" id="stage">
+            <div class="target" id="clickTarget" tabindex="0">CLICK ME</div>
+            <div class="box">
+              <label for="tbox"><strong>Type into this box</strong></label>
+              <input id="tbox" type="text" placeholder="type here…" style="padding:10px;border-radius:10px;border:1px solid #94a3b8;outline:none;font-size:16px" />
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Fullscreen QR Overlay -->
   <div id="qrOverlay" class="qrovl" aria-hidden="true">
     <button id="qrClose" class="close" title="Close">×</button>
     <div id="qrBox" class="qrbox"></div>
@@ -128,11 +127,7 @@
         log: state.logs.slice(-80)
       }
       const text = JSON.stringify(payload)
-      if ($qrBox) {
-        $qrBox.innerHTML=''
-        const size = Math.max(640, Math.min(Math.floor(Math.min(window.innerWidth, window.innerHeight)*0.88), 1600))
-        new QRCode($qrBox, { text, width:size, height:size, correctLevel: QRCode.CorrectLevel.H })
-      }
+      if ($qrBox) { $qrBox.innerHTML=''; const size = Math.max(640, Math.min(Math.floor(Math.min(window.innerWidth, window.innerHeight)*0.88), 1600)); new QRCode($qrBox, { text, width:size, height:size, correctLevel: QRCode.CorrectLevel.H }) }
       if ($qrOverlay){ $qrOverlay.classList.add('show'); $qrOverlay.setAttribute('aria-hidden','false') }
       if ($qrClose){ $qrClose.onclick = ()=>{ $qrOverlay.classList.remove('show'); $qrOverlay.setAttribute('aria-hidden','true') } }
       log('QR encoded length='+text.length)
