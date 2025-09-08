@@ -1,0 +1,198 @@
+<!-- =========================
+File: tests/template.html
+Purpose: Reusable static template for screenshot-verifiable UI test pages
+Notes: Include this file as a base, or copy its structure when making new tests.
+========================= -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Test Template — Screenshot-Verifiable Harness</title>
+  <style>
+    :root{
+      --ok:#12b886; /* green */
+      --fail:#fa5252; /* red */
+      --ink:#111;
+      --ink-dim:#555;
+      --bg:#f7f7f9;
+      --card:#fff;
+    }
+    html,body{margin:0;height:100%;background:var(--bg);font:14px/1.4 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji"}
+    .wrap{max-width:980px;margin:0 auto;padding:16px}
+    .grid{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+    .card{background:var(--card);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);padding:16px}
+    h1{margin:0 0 8px;font-size:20px}
+    h2{margin:0 0 8px;font-size:16px;color:var(--ink)}
+    .muted{color:var(--ink-dim)}
+    .badge{display:inline-block;padding:4px 8px;border-radius:999px;font-weight:600}
+    .badge.ok{background:var(--ok);color:#fff}
+    .badge.fail{background:var(--fail);color:#fff}
+    .big-result{display:flex;align-items:center;justify-content:center;height:120px;border-radius:12px;font-weight:800;font-size:32px;letter-spacing:1px}
+    .big-result.ok{background:var(--ok);color:#fff}
+    .big-result.fail{background:var(--fail);color:#fff}
+    .kvs{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center}
+    .k{color:#6b7280;text-align:right}
+    .v{font-weight:600}
+    .list{display:grid;gap:8px}
+    .row{display:flex;justify-content:space-between;align-items:center;border:1px solid #e5e7eb;border-radius:10px;padding:8px 10px}
+    .row .name{font-weight:600}
+    .row .exp{color:#6b7280}
+    .btn{appearance:none;border:0;background:#111;color:#fff;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}
+    .btn.secondary{background:#334155}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap}
+    .log{height:220px;overflow:auto;background:#0b1020;color:#cbe0ff;font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:12px;border-radius:10px;padding:10px}
+    .qr{display:flex;align-items:center;justify-content:center;min-height:160px}
+    /* Four-corner fiducials for geometry checks */
+    .fid{position:fixed;width:28px;height:28px;z-index:1}
+    .fid.tl{left:8px;top:8px;background:conic-gradient(#000 0 25%,#fff 0 50%,#000 0 75%,#fff 0)}
+    .fid.tr{right:8px;top:8px;background:repeating-linear-gradient(45deg,#000 0 6px,#fff 6px 12px)}
+    .fid.bl{left:8px;bottom:8px;background:repeating-linear-gradient(135deg,#000 0 6px,#fff 6px 12px)}
+    .fid.br{right:8px;bottom:8px;background:radial-gradient(#000 40%,#fff 41%)}
+    /* Validation area placeholder style */
+    .stage{height:360px;border:2px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#64748b}
+  </style>
+</head>
+<body>
+  <div class="fid tl" aria-hidden="true"></div>
+  <div class="fid tr" aria-hidden="true"></div>
+  <div class="fid bl" aria-hidden="true"></div>
+  <div class="fid br" aria-hidden="true"></div>
+
+  <div class="wrap">
+    <h1>Screenshot‑Verifiable Test Template</h1>
+    <p class="muted">Use this template to build pages that validate remote mouse/keyboard actions and render machine‑readable results.</p>
+
+    <div class="grid">
+      <!-- Left: Meta & Controls -->
+      <div class="card">
+        <h2>Run Meta</h2>
+        <div class="kvs" id="meta">
+          <div class="k">Test</div><div class="v" data-k="name">—</div>
+          <div class="k">Run ID</div><div class="v" data-k="runId">—</div>
+          <div class="k">Started</div><div class="v" data-k="startedAt">—</div>
+          <div class="k">Actions</div><div class="v" data-k="actions">0</div>
+          <div class="k">Pass</div><div class="v" data-k="pass">0</div>
+          <div class="k">Fail</div><div class="v" data-k="fail">0</div>
+        </div>
+        <hr />
+        <div class="toolbar">
+          <button class="btn" id="btn-verify">Run Assertions</button>
+          <button class="btn secondary" id="btn-reset">Reset Page</button>
+        </div>
+        <p class="muted" style="margin-top:6px">Trigger from your runner after remote actions are sent. Everything below is screenshot‑visible.</p>
+      </div>
+
+      <!-- Right: Result & Logs -->
+      <div class="card">
+        <div class="big-result" id="bigResult">WAITING</div>
+        <div class="list" id="cases"></div>
+        <h2 style="margin-top:12px">Logs</h2>
+        <pre class="log" id="log"></pre>
+        <h2 style="margin-top:12px">QR Result</h2>
+        <div class="qr" id="qr"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <h2>Validation Stage</h2>
+      <div id="stage" class="stage">Place your test widgets here (targets, inputs, scroll containers, etc.)</div>
+    </div>
+  </div>
+
+  <!-- qrcode generator (tiny, CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+  ;(() => {
+    // --- Minimal test harness API ---
+    const state = {
+      testName: new URLSearchParams(location.search).get('name') || 'Unnamed Test',
+      runId: (new URLSearchParams(location.search).get('run') || (Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8))).toUpperCase(),
+      startedAt: new Date().toISOString(),
+      cases: [],
+      logs: [],
+      meta: {},
+    }
+
+    const $meta = document.getElementById('meta')
+    const $cases = document.getElementById('cases')
+    const $log = document.getElementById('log')
+    const $big = document.getElementById('bigResult')
+    const $qr = document.getElementById('qr')
+
+    function setMeta(k,v){ state.meta[k]=v; const el=$meta.querySelector(`[data-k="${k}"]`); if(el) el.textContent=String(v) }
+    function log(msg){ const line = `[${new Date().toISOString()}] ${msg}`; state.logs.push(line); $log.textContent += line + '\n'; $log.scrollTop = $log.scrollHeight }
+    function registerAssertion(name, expected, fn){ state.cases.push({name, expected, fn, pass:null, actual:null, error:null}) }
+    function renderCases(){
+      $cases.innerHTML = ''
+      for(const c of state.cases){
+        const row = document.createElement('div'); row.className='row'
+        row.innerHTML = `<div><span class="name">${c.name}</span><div class="exp">exp: ${escapeHtml(JSON.stringify(c.expected))}</div></div>`+
+                        `<div class="badge ${c.pass? 'ok':'fail'}">${c.pass? 'PASS':'FAIL'}</div>`
+        $cases.appendChild(row)
+      }
+    }
+
+    function escapeHtml(s){ return s.replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m])) }
+
+    async function runAssertions(){
+      let pass=0, fail=0
+      for(const c of state.cases){
+        try {
+          const actual = await c.fn()
+          c.actual = actual
+          c.pass = deepEqual(actual, c.expected)
+          c.error = null
+        } catch(err){ c.pass=false; c.error=String(err) }
+        c.pass? pass++ : fail++
+      }
+      setMeta('actions', state.cases.length)
+      setMeta('pass', pass)
+      setMeta('fail', fail)
+      $big.className = 'big-result ' + (fail===0? 'ok':'fail')
+      $big.textContent = fail===0? 'PASS' : 'FAIL'
+      renderCases()
+      buildQR(fail===0)
+    }
+
+    function buildQR(allPass){
+      const payload = {
+        type: 'remote-browser-test',
+        version: 1,
+        test: state.testName,
+        runId: state.runId,
+        startedAt: state.startedAt,
+        endedAt: new Date().toISOString(),
+        pass: allPass,
+        summary: state.cases.map(c=>({name:c.name, pass:c.pass, expected:c.expected, actual:c.actual, error:c.error})),
+        log: state.logs.slice(-80), // truncate to last 80 lines to keep QR scannable
+      }
+      const text = JSON.stringify(payload)
+      $qr.innerHTML = ''
+      // Use high error correction to survive scaling in screenshots
+      new QRCode($qr, { text, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.H })
+      log('QR encoded length=' + text.length)
+    }
+
+    function deepEqual(a,b){ try{ return JSON.stringify(a)===JSON.stringify(b) }catch{ return false } }
+
+    // Wire buttons
+    document.getElementById('btn-verify').addEventListener('click', runAssertions)
+    document.getElementById('btn-reset').addEventListener('click', () => location.reload())
+
+    // Seed meta
+    setMeta('name', state.testName)
+    setMeta('runId', state.runId)
+    setMeta('startedAt', state.startedAt)
+
+    // Expose small API for test pages
+    window.__TEST_API__ = { registerAssertion, log, setMeta, state }
+  })()
+  </script>
+</body>
+</html>
+
+
+
+
+

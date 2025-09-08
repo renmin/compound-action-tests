@@ -1,0 +1,79 @@
+<!-- =========================
+File: tools/qr_decode_debugger.html
+Purpose: Standalone page to drag&drop a screenshot and decode the embedded QR payload
+========================= -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>QR Decode Debugger</title>
+  <style>
+    body{margin:0;background:#0b1020;color:#cbe0ff;font:14px/1.5 ui-sans-serif,system-ui}
+    .wrap{max-width:920px;margin:0 auto;padding:16px}
+    h1{margin:0 0 8px;font-size:20px}
+    .drop{border:2px dashed #3b82f6;border-radius:12px;height:280px;display:flex;align-items:center;justify-content:center;background:#0f172a;color:#9db7ff}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+    .card{background:#0f172a;border:1px solid #1f2a44;border-radius:12px;padding:12px}
+    pre{white-space:pre-wrap;word-break:break-word}
+    canvas, img{max-width:100%;border-radius:8px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>QR Decode Debugger</h1>
+    <p>Drag & drop a screenshot here. The tool will try to locate and decode the QR code embedded by the test pages.</p>
+    <div id="drop" class="drop">Drop screenshot image here</div>
+
+    <div class="row">
+      <div class="card">
+        <h3>Image</h3>
+        <canvas id="canvas"></canvas>
+      </div>
+      <div class="card">
+        <h3>Decoded Payload</h3>
+        <pre id="out">—</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- jsQR library -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+  <script>
+    const drop = document.getElementById('drop')
+    const canvas = document.getElementById('canvas')
+    const ctx = canvas.getContext('2d')
+    const out = document.getElementById('out')
+
+    ;['dragenter','dragover','dragleave','drop'].forEach(ev=>{
+      drop.addEventListener(ev, e=>{ e.preventDefault(); e.stopPropagation() })
+    })
+    ;['dragenter','dragover'].forEach(ev=>{
+      drop.addEventListener(ev, ()=> drop.style.background='#0b2567')
+    })
+    ;['dragleave','drop'].forEach(ev=>{
+      drop.addEventListener(ev, ()=> drop.style.background='#0f172a')
+    })
+
+    drop.addEventListener('drop', async e => {
+      const file = [...e.dataTransfer.files].find(f=>/^image\//.test(f.type))
+      if(!file){ out.textContent='No image file dropped.'; return }
+      const img = await fileToImage(file)
+      const w = Math.min(img.naturalWidth, 1600)
+      const h = Math.round(img.naturalHeight * (w/img.naturalWidth))
+      canvas.width=w; canvas.height=h
+      ctx.drawImage(img,0,0,w,h)
+      const imgData = ctx.getImageData(0,0,w,h)
+      const code = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'dontInvert' })
+      if(code){
+        try{ out.textContent = pretty(JSON.parse(code.data)) }catch{ out.textContent = code.data }
+      } else {
+        out.textContent='No QR code detected. Try cropping closer to the QR in the screenshot or ensure the QR size is large enough.'
+      }
+    })
+
+    function fileToImage(file){ return new Promise((res,rej)=>{ const url=URL.createObjectURL(file); const img=new Image(); img.onload=()=>res(img); img.onerror=rej; img.src=url }) }
+    function pretty(o){ return JSON.stringify(o,null,2) }
+  </script>
+</body>
+</html>
