@@ -22,6 +22,13 @@ class TestManager {
     this.setMeta('name', this.state.testName);
     this.setMeta('runId', this.state.runId);
     this.setMeta('startedAt', this.state.startedAt);
+
+    // 自动绑定 resize 和 btn-verify 事件
+    window.addEventListener('resize', () => this.onQRResize());
+    const btn = document.getElementById('btn-verify');
+    if (btn) {
+      btn.addEventListener('click', () => this.runAssertions());
+    }
   }
 
   log(m) {

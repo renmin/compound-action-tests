@@ -88,12 +88,6 @@
     testManager.registerAssertion('click target hit', {clicked:true}, async () => ({clicked: clickTarget.classList.contains('clicked')}));
     testManager.registerAssertion('typed text equals', {value: expectedText}, async () => ({value: tbox.value}));
 
-    function onQRResize(){
-      testManager.onQRResize();
-    }
-    window.addEventListener('resize', onQRResize);
-
-    document.getElementById('btn-verify').addEventListener('click', () => testManager.runAssertions());
   })()
   </script>
 </body>

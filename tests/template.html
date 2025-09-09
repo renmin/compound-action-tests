@@ -66,12 +66,6 @@
     // 可在此注册断言，例如：
     // testManager.registerAssertion('assertion name', {expected: value}, async () => ({actual: value}));
 
-    function onQRResize(){
-      testManager.onQRResize();
-    }
-    window.addEventListener('resize', onQRResize);
-
-    document.getElementById('btn-verify').addEventListener('click', () => testManager.runAssertions());
   })()
   </script>
 </body>
