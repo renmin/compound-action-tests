@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>test_window_size — Compound Test</title>
+  <link rel="stylesheet" href="common.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="grid">
+      <div class="left">
+        <h1>test_window_size</h1>
+        <p class="muted">Checks if window.outerWidth is between 1279 and 1280, and window.outerHeight is between 959 and 960.</p>
+        <div class="card">
+          <h2>Run Meta</h2>
+          <div class="kvs" id="meta">
+            <div class="k">Test</div><div class="v" data-k="name">—</div>
+            <div class="k">Run ID</div><div class="v" data-k="runId">—</div>
+            <div class="k">Started</div><div class="v" data-k="startedAt">—</div>
+            <div class="k">Actions</div><div class="v" data-k="actions">0</div>
+            <div class="k">Pass</div><div class="v" data-k="pass">0</div>
+            <div class="k">Fail</div><div class="v" data-k="fail">0</div>
+          </div>
+          <hr />
+          <div class="toolbar">
+            <button class="btn" id="btn-verify">Run Assertions</button>
+          </div>
+          <p class="muted" style="margin-top:6px">Recommended window size: <strong>1280×960</strong>.</p>
+        </div>
+        <div class="card">
+          <div class="big-result" id="bigResult">WAITING</div>
+          <div class="list" id="cases"></div>
+          <h2 style="margin-top:12px">Logs</h2>
+          <pre class="log" id="log"></pre>
+        </div>
+      </div>
+      <div class="right">
+        <div class="card">
+          <h2>Validation Stage</h2>
+          <div id="stage" class="stage">No UI controls needed for this test.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen QR Overlay -->
+  <div id="qrOverlay" class="qrovl" aria-hidden="true">
+    <button id="qrClose" class="close" title="Close">×</button>
+    <div id="qrBox" class="qrbox"></div>
+    <div class="hint">QR code enlarged for reliable screenshot decoding. Click × to close.</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="common.js"></script>
+  <script>
+  ;(() => {
+    const qs = new URLSearchParams(location.search);
+    const testName = 'test_window_size';
+    const testManager = new window.__TestCommon({
+      testName,
+      runId: qs.get('run'),
+      startedAt: new Date().toISOString()
+    });
+
+    testManager.log('window.outerWidth=' + window.outerWidth + ', window.outerHeight=' + window.outerHeight);
+    testManager.registerAssertion(
+      'window.outerWidth between 1279 and 1280',
+      { pass: true },
+      async () => ({ pass: window.outerWidth >= 1279 && window.outerWidth <= 1280 })
+    );
+    testManager.registerAssertion(
+      'window.outerHeight between 959 and 960',
+      { pass: true },
+      async () => ({ pass: window.outerHeight >= 959 && window.outerHeight <= 960 })
+    );
+  })()
+  </script>
+</body>
+</html>
