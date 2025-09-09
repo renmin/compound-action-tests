@@ -2,7 +2,7 @@
 
 
 class TestManager {
-  constructor({ testName, runId, startedAt, usingQRCode = false }) {
+  constructor({ testName, runId, startedAt, usingQRCode } = {}) {
     this.state = {
       testName: testName || 'Unnamed Test',
       runId: runId || (Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8)).toUpperCase(),
@@ -16,11 +16,23 @@ class TestManager {
     this.$cases = document.getElementById('cases');
     this.$log = document.getElementById('log');
     this.$qrOverlay = document.getElementById('qrOverlay');
-    this.$qrBox = document.getElementById('qrBox');
-    this.$qrClose = document.getElementById('qrClose');
+  this.$qrBox = document.getElementById('qrBox');
     this.__qrTextCache = null;
-  // whether to render a scannable QR code (true) or a colored pass/fail box (false)
-  this.usingQRCode = !!usingQRCode;
+    // whether to render a scannable QR code (true) or a colored pass/fail box (false)
+    // precedence: explicit constructor value > ?qrcode=0|1 URL param > default false
+    if (typeof usingQRCode === 'undefined') {
+      try {
+        const qs = new URLSearchParams(location.search);
+        const q = qs.get('qrcode');
+        if (q === '0') this.usingQRCode = false;
+        else if (q === '1') this.usingQRCode = true;
+        else this.usingQRCode = false;
+      } catch (err) {
+        this.usingQRCode = false;
+      }
+    } else {
+      this.usingQRCode = !!usingQRCode;
+    }
     this.setMeta('name', this.state.testName);
     this.setMeta('runId', this.state.runId);
     this.setMeta('startedAt', this.state.startedAt);
@@ -165,11 +177,11 @@ class TestManager {
       this.renderResultBox(allPass);
     }
     if (this.$qrOverlay) {
+      // show overlay
       this.$qrOverlay.classList.add('show');
       this.$qrOverlay.setAttribute('aria-hidden', 'false');
-    }
-    if (this.$qrClose) {
-      this.$qrClose.onclick = () => {
+      // clicking overlay anywhere closes it
+      this.$qrOverlay.onclick = () => {
         this.$qrOverlay.classList.remove('show');
         this.$qrOverlay.setAttribute('aria-hidden', 'true');
       };
