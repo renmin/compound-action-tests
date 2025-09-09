@@ -2,7 +2,7 @@
 
 
 class TestManager {
-  constructor({ testName, runId, startedAt }) {
+  constructor({ testName, runId, startedAt, usingQRCode = false }) {
     this.state = {
       testName: testName || 'Unnamed Test',
       runId: runId || (Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8)).toUpperCase(),
@@ -19,6 +19,8 @@ class TestManager {
     this.$qrBox = document.getElementById('qrBox');
     this.$qrClose = document.getElementById('qrClose');
     this.__qrTextCache = null;
+  // whether to render a scannable QR code (true) or a colored pass/fail box (false)
+  this.usingQRCode = !!usingQRCode;
     this.setMeta('name', this.state.testName);
     this.setMeta('runId', this.state.runId);
     this.setMeta('startedAt', this.state.startedAt);
@@ -64,15 +66,39 @@ class TestManager {
 
   renderQRInto(text) {
     if (!this.$qrBox) return;
+    // render an actual QR code into the box
     this.$qrBox.innerHTML = '';
     const size = this.getQRSize();
     new QRCode(this.$qrBox, { text, width: size, height: size, correctLevel: QRCode.CorrectLevel.H });
   }
 
+  renderResultBox(allPass) {
+    if (!this.$qrBox) return;
+    this.$qrBox.innerHTML = '';
+    const size = this.getQRSize();
+    const box = document.createElement('div');
+    box.style.width = size + 'px';
+    box.style.height = size + 'px';
+    box.style.background = allPass ? '#2ecc71' : '#e74c3c';
+    box.style.display = 'flex';
+    box.style.alignItems = 'center';
+    box.style.justifyContent = 'center';
+    box.style.color = '#ffffff';
+    box.style.fontSize = Math.max(20, Math.floor(size / 12)) + 'px';
+    box.style.fontFamily = 'sans-serif';
+    box.style.borderRadius = '6px';
+    box.textContent = allPass ? 'PASS' : 'FAIL';
+    this.$qrBox.appendChild(box);
+  }
+
   onQRResize() {
     const visible = this.$qrOverlay && this.$qrOverlay.classList.contains('show');
     if (visible && this.__qrTextCache) {
-      this.renderQRInto(this.__qrTextCache);
+      if (this.usingQRCode) {
+        this.renderQRInto(this.__qrTextCache);
+      } else if (typeof this.__lastPass === 'boolean') {
+        this.renderResultBox(this.__lastPass);
+      }
     }
   }
 
@@ -132,7 +158,12 @@ class TestManager {
     };
     const text = JSON.stringify(payload);
     this.__qrTextCache = text;
-    this.renderQRInto(text);
+    this.__lastPass = !!allPass;
+    if (this.usingQRCode) {
+      this.renderQRInto(text);
+    } else {
+      this.renderResultBox(allPass);
+    }
     if (this.$qrOverlay) {
       this.$qrOverlay.classList.add('show');
       this.$qrOverlay.setAttribute('aria-hidden', 'false');
