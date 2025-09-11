@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Scroll & Slider Test — Screenshot-Verifiable Harness</title>
+  <link rel="stylesheet" href="common.css" />
+  <style>
+    #stage {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: stretch;
+      justify-content: flex-start;
+      height: 600px;
+      min-width: 0;
+      overflow: visible;
+    }
+    .test-row {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+    }
+    .test-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1;
+      min-width: 0;
+    }
+    #testTextarea {
+      width: 100%;
+      height: 120px;
+      resize: vertical;
+      overflow-y: scroll;
+      font-size: 14px;
+    }
+    #testDiv {
+      width: 100%;
+      height: 120px;
+      overflow-y: scroll;
+      border: 1px solid #ccc;
+      background: #fafafa;
+    }
+    #h_slider {
+      width: 100%;
+    }
+    #v_slider {
+      writing-mode: bt-lr;
+      -webkit-appearance: slider-vertical;
+      width: 24px;
+      height: 120px;
+      margin-left: 8px;
+    }
+    .desc {
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="grid">
+      <div class="left">
+        <h1>Scroll & Slider Test</h1>
+        <p class="muted">Test vertical/horizontal scroll and slider values. All elements fully visible in stage, no stage scrollbar.</p>
+        <div class="card">
+          <h2>Run Meta</h2>
+          <div class="kvs" id="meta">
+            <div class="k">Test</div><div class="v" data-k="name">—</div>
+            <div class="k">Run ID</div><div class="v" data-k="runId">—</div>
+            <div class="k">Started</div><div class="v" data-k="startedAt">—</div>
+            <div class="k">Actions</div><div class="v" data-k="actions">0</div>
+            <div class="k">Pass</div><div class="v" data-k="pass">0</div>
+            <div class="k">Fail</div><div class="v" data-k="fail">0</div>
+          </div>
+          <hr />
+          <div class="toolbar">
+            <button class="btn" id="btn-verify">Run Assertions</button>
+          </div>
+          <p class="muted" style="margin-top:6px">Recommended window size: <strong>1280×960</strong>.</p>
+        </div>
+        <div class="card">
+          <div class="big-result" id="bigResult">WAITING</div>
+          <div class="list" id="cases"></div>
+          <h2 style="margin-top:12px">Logs</h2>
+          <pre class="log" id="log"></pre>
+        </div>
+      </div>
+      <div class="right">
+        <div class="card">
+          <h2>Validation Stage</h2>
+          <div id="stage" class="stage">
+            <div class="desc">
+              This test checks:<br>
+              1. <b>textarea_scroll_y === textarea.scrollTop</b><br>
+              2. <b>div_scroll_y === div.scrollTop</b><br>
+              3. <b>h_slider_value === h_slider.value</b><br>
+              4. <b>v_slider_value === v_slider.value</b><br>
+              If a parameter is missing, its assertion is skipped.<br>
+              <br>
+              <b>Sample query string:</b><br>
+              <code>?textarea_scroll_y=100&div_scroll_y=200&h_slider_value=80&v_slider_value=20</code>
+            </div>
+            <div class="test-row">
+              <div class="test-col">
+                <label for="testTextarea">Textarea (vertical scroll)</label>
+                <textarea id="testTextarea"></textarea>
+              </div>
+              <div class="test-col">
+                <label for="testDiv">Div (vertical scroll)</label>
+                <div id="testDiv"></div>
+              </div>
+            </div>
+            <div class="test-row">
+              <div class="test-col">
+                <label for="h_slider">Horizontal Slider</label>
+                <input type="range" id="h_slider" min="0" max="100" value="50" />
+              </div>
+              <div class="test-col">
+                <label for="v_slider">Vertical Slider</label>
+                <input type="range" id="v_slider" min="0" max="100" value="50" orient="vertical" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen QR Overlay -->
+  <div id="qrOverlay" class="qrovl" aria-hidden="true">
+    <div id="qrBox" class="qrbox"></div>
+    <div class="hint">QR code enlarged for reliable screenshot decoding. Click anywhere to close.</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="common.js"></script>
+  <script>
+  ;(() => {
+    // Generate 1000 words for textarea
+    const textarea = document.getElementById('testTextarea');
+    textarea.value = Array(1000).fill('word').join(' ');
+
+    // Generate many elements for div
+    const testDiv = document.getElementById('testDiv');
+    for (let i = 1; i <= 200; i++) {
+      const el = document.createElement('div');
+      el.textContent = `Element ${i}`;
+      el.style.padding = '2px 0';
+      testDiv.appendChild(el);
+    }
+
+    // Query string params
+    const qs = new URLSearchParams(location.search);
+    const textarea_scroll_y = qs.get('textarea_scroll_y');
+    const div_scroll_y = qs.get('div_scroll_y');
+    const h_slider_value = qs.get('h_slider_value');
+    const v_slider_value = qs.get('v_slider_value');
+
+    // Log helper
+    const logEl = document.getElementById('log');
+    function appendLog(msg) {
+      logEl.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // Event listeners for logging
+    textarea.addEventListener('scroll', () => {
+      appendLog(`textarea.scrollTop = ${textarea.scrollTop}`);
+    });
+    testDiv.addEventListener('scroll', () => {
+      appendLog(`div.scrollTop = ${testDiv.scrollTop}`);
+    });
+    document.getElementById('h_slider').addEventListener('input', e => {
+      appendLog(`h_slider.value = ${e.target.value}`);
+    });
+    document.getElementById('v_slider').addEventListener('input', e => {
+      appendLog(`v_slider.value = ${e.target.value}`);
+    });
+
+    const testManager = new window.__TestCommon({
+      testName: 'Scroll & Slider Test',
+      runId: qs.get('run'),
+      startedAt: new Date().toISOString()
+    });
+
+    // Assertions
+    if (textarea_scroll_y !== null) {
+      testManager.registerAssertion('textarea_scroll_y', {scroll_y: Number(textarea_scroll_y)}, async () => ({scroll_y: textarea.scrollTop}));
+    }
+    if (div_scroll_y !== null) {
+      testManager.registerAssertion('div_scroll_y', {scroll_y: Number(div_scroll_y)}, async () => ({scroll_y: testDiv.scrollTop}));
+    }
+    if (h_slider_value !== null) {
+      testManager.registerAssertion('h_slider_value', {h_slider: Number(h_slider_value)}, async () => ({h_slider: Number(document.getElementById('h_slider').value)}));
+    }
+    if (v_slider_value !== null) {
+      testManager.registerAssertion('v_slider_value', {v_slider: Number(v_slider_value)}, async () => ({v_slider: Number(document.getElementById('v_slider').value)}));
+    }
+  })()
+  </script>
+</body>
+</html>
