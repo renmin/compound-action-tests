@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Text Input & Shortcuts Test — Screenshot‑Verifiable Harness</title>
+  <link rel="stylesheet" href="common.css" />
+  <style>
+    #stage {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: stretch;
+      justify-content: flex-start;
+      height: 420px;
+      min-width: 0;
+      overflow: visible; /* ensure stage itself has no scrollbar */
+    }
+    .inputs-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: nowrap;
+    }
+    .input-box {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex: 1 1 0;
+      min-width: 0;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .desc {
+      font-size: 13px;
+      color: #555;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="grid">
+      <div class="left">
+        <h1>Text Input & Shortcuts Test</h1>
+        <p class="muted">Validate typing and common shortcuts (Ctrl/Cmd + A/X/C/V/Z). Keyboard and mouse events on inputs are logged.</p>
+        <div class="card">
+          <h2>Run Meta</h2>
+          <div class="kvs" id="meta">
+            <div class="k">Test</div><div class="v" data-k="name">—</div>
+            <div class="k">Run ID</div><div class="v" data-k="runId">—</div>
+            <div class="k">Started</div><div class="v" data-k="startedAt">—</div>
+            <div class="k">Actions</div><div class="v" data-k="actions">0</div>
+            <div class="k">Pass</div><div class="v" data-k="pass">0</div>
+            <div class="k">Fail</div><div class="v" data-k="fail">0</div>
+          </div>
+          <hr />
+          <div class="toolbar">
+            <button class="btn" id="btn-verify">Run Assertions</button>
+          </div>
+          <p class="muted" style="margin-top:6px">Recommended window size: <strong>1280×960</strong>.</p>
+        </div>
+        <div class="card">
+          <div class="big-result" id="bigResult">WAITING</div>
+          <div class="list" id="cases"></div>
+          <h2 style="margin-top:12px">Logs</h2>
+          <pre class="log" id="log"></pre>
+        </div>
+      </div>
+      <div class="right">
+        <div class="card">
+          <h2>Validation Stage</h2>
+          <div id="stage" class="stage">
+            <div class="desc">
+              Purpose: test typing and shortcut keys on five text inputs.<br>
+              Assertions expect the following query string parameters to be present (string):
+              <code>?input1=TEXT1&input2=TEXT2&input3=TEXT3&input4=TEXT4&input5=TEXT5</code><br>
+              Each assertion will compare the input's final value with the corresponding parameter value.
+            </div>
+
+            <div class="inputs-row">
+              <div class="input-box">
+                <label for="input1">Input 1</label>
+                <input id="input1" type="text" autocomplete="off" tabindex="1" />
+              </div>
+              <div class="input-box">
+                <label for="input2">Input 2</label>
+                <input id="input2" type="text" autocomplete="off" tabindex="2" />
+              </div>
+              <div class="input-box">
+                <label for="input3">Input 3</label>
+                <input id="input3" type="text" autocomplete="off" tabindex="3" />
+              </div>
+            </div>
+
+            <div class="inputs-row">
+              <div class="input-box">
+                <label for="input4">Input 4</label>
+                <input id="input4" type="text" autocomplete="off" tabindex="4" />
+              </div>
+              <div class="input-box">
+                <label for="input5">Input 5</label>
+                <input id="input5" type="text" autocomplete="off" tabindex="5" />
+              </div>
+            </div>
+
+            <div class="desc" style="margin-top:10px">
+              Notes: Use typing and the following shortcuts to manipulate content while observing the log: <br>
+              - Select All: Ctrl/Cmd + A<br>
+              - Cut: Ctrl/Cmd + X<br>
+              - Copy: Ctrl/Cmd + C<br>
+              - Paste: Ctrl/Cmd + V<br>
+              - Undo: Ctrl/Cmd + Z
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen QR Overlay -->
+  <div id="qrOverlay" class="qrovl" aria-hidden="true">
+    <div id="qrBox" class="qrbox"></div>
+    <div class="hint">QR code enlarged for reliable screenshot decoding. Click anywhere to close.</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="common.js"></script>
+  <script>
+  ;(() => {
+    const qs = new URLSearchParams(location.search);
+    const expected1 = qs.get('input1');
+    const expected2 = qs.get('input2');
+    const expected3 = qs.get('input3');
+    const expected4 = qs.get('input4');
+    const expected5 = qs.get('input5');
+
+    // Do not prefill inputs: automation should type / trigger shortcuts to reach expected values
+    const inputs = [
+      document.getElementById('input1'),
+      document.getElementById('input2'),
+      document.getElementById('input3'),
+      document.getElementById('input4'),
+      document.getElementById('input5')
+    ];
+
+    // Ensure explicit tab order and focus input1 on load so Tab cycles from input1 → input5
+    inputs.forEach((inp, i) => { inp.tabIndex = i + 1; });
+    // Focus after paint to avoid race with other focusable elements
+    requestAnimationFrame(() => {
+      try {
+        inputs[0].focus();
+        appendLog('input1 focused');
+      } catch (e) {
+        // ignore
+      }
+    });
+
+    const logEl = document.getElementById('log');
+    function appendLog(msg) {
+      logEl.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // Attach keyboard and mouse event listeners for logging
+    inputs.forEach((inp, idx) => {
+      const id = `input${idx+1}`;
+
+      inp.addEventListener('keydown', (e) => {
+        appendLog(`${id} keydown key=${e.key} code=${e.code} ctrl=${e.ctrlKey} alt=${e.altKey} shift=${e.shiftKey} meta=${e.metaKey}`);
+      });
+      inp.addEventListener('keyup', (e) => {
+        appendLog(`${id} keyup key=${e.key} code=${e.code}`);
+      });
+      inp.addEventListener('input', (e) => {
+        appendLog(`${id} input value="${e.target.value}"`);
+      });
+      inp.addEventListener('paste', (e) => {
+        const pasted = (e.clipboardData || window.clipboardData).getData('text');
+        appendLog(`${id} paste data="${pasted}"`);
+      });
+      inp.addEventListener('cut', (e) => {
+        appendLog(`${id} cut`);
+      });
+      inp.addEventListener('copy', (e) => {
+        appendLog(`${id} copy`);
+      });
+
+      // Mouse events
+      ['mousedown','mouseup','click','dblclick','focus','blur'].forEach(eventName => {
+        inp.addEventListener(eventName, () => appendLog(`${id} ${eventName}`));
+      });
+    });
+
+    const testManager = new window.__TestCommon({
+      testName: 'Text Input & Shortcuts Test',
+      runId: qs.get('run'),
+      startedAt: new Date().toISOString()
+    });
+
+    // Register assertions for each input. Expectation values come from query string parameters.
+    testManager.registerAssertion('input1_equals', {pass: expected1}, async () => ({pass: document.getElementById('input1').value}));
+    testManager.registerAssertion('input2_equals', {pass: expected2}, async () => ({pass: document.getElementById('input2').value}));
+    testManager.registerAssertion('input3_equals', {pass: expected3}, async () => ({pass: document.getElementById('input3').value}));
+    testManager.registerAssertion('input4_equals', {pass: expected4}, async () => ({pass: document.getElementById('input4').value}));
+    testManager.registerAssertion('input5_equals', {pass: expected5}, async () => ({pass: document.getElementById('input5').value}));
+
+  })()
+  </script>
+</body>
+</html>

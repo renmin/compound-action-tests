@@ -23,7 +23,7 @@
    });
 
    // 注册断言
-   testManager.registerAssertion('assertion name', {expected: value}, async () => ({actual: value}));
+   testManager.registerAssertion('assertion name', {key: value}, async () => ({key: value}));
    ```
 
 5. 保存后即可在浏览器中访问新页面进行测试。
