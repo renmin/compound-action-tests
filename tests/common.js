@@ -176,6 +176,8 @@ class TestManager {
     } else {
       this.renderResultBox(allPass);
     }
+    // 同步复制二维码文本到剪贴板
+    this.copyToClipboard(text);
     if (this.$qrOverlay) {
       // show overlay
       this.$qrOverlay.classList.add('show');
@@ -191,3 +193,37 @@ class TestManager {
 }
 
 window.__TestCommon = TestManager;
+
+// 追加：为 TestManager 原型添加复制功能（放在类定义后，避免影响上方可读性）
+TestManager.prototype.copyToClipboard = function(text) {
+  if (!text) return;
+  // 优先使用异步 Clipboard API
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      this.log('QR text copied to clipboard (navigator.clipboard).');
+    }).catch(err => {
+      this.log('navigator.clipboard failed: ' + err + ' – fallback to execCommand');
+      this.__legacyCopy(text);
+    });
+  } else {
+    this.__legacyCopy(text);
+  }
+};
+
+TestManager.prototype.__legacyCopy = function(text) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    ta.style.left = '-1000px';
+    ta.setAttribute('readonly', '');
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    this.log(ok ? 'QR text copied to clipboard (execCommand).' : 'Copy to clipboard (execCommand) failed.');
+  } catch (e) {
+    this.log('Clipboard fallback error: ' + e);
+  }
+};
