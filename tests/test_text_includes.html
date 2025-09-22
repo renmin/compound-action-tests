@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Text Includes Test — Screenshot-Verifiable Harness</title>
+  <link rel="stylesheet" href="common.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="grid">
+      <div class="left">
+        <h1>Screenshot‑Verifiable Test Template</h1>
+        <p class="muted">Use this template to build pages that validate remote mouse/keyboard actions and render machine‑readable results.</p>
+        <div class="card">
+          <h2>Run Meta</h2>
+          <div class="kvs" id="meta">
+            <div class="k">Test</div><div class="v" data-k="name">—</div>
+            <div class="k">Run ID</div><div class="v" data-k="runId">—</div>
+            <div class="k">Started</div><div class="v" data-k="startedAt">—</div>
+            <div class="k">Actions</div><div class="v" data-k="actions">0</div>
+            <div class="k">Pass</div><div class="v" data-k="pass">0</div>
+            <div class="k">Fail</div><div class="v" data-k="fail">0</div>
+          </div>
+          <hr />
+          <div class="toolbar">
+            <button class="btn" id="btn-verify">Run Assertions</button>
+          </div>
+          <p class="muted" style="margin-top:6px">Recommended window size: <strong>1280×960</strong>.</p>
+        </div>
+        <div class="card">
+          <div class="big-result" id="bigResult">WAITING</div>
+          <div class="list" id="cases"></div>
+          <h2 style="margin-top:12px">Logs</h2>
+          <pre class="log" id="log"></pre>
+        </div>
+      </div>
+      <div class="right">
+        <div class="card">
+          <h2>Validation Stage</h2>
+          <div id="stage" class="stage">
+            <div class="muted" style="margin-bottom:8px; line-height:1.5;">
+              <strong>说明：</strong> 在下方大文本框输入或粘贴文本。点击左侧 <em>Run Assertions</em> 按钮，将验证 URL 查询参数 <code>need_include</code> 指定的所有字符串是否都被包含。<br>
+              支持三种传参方式：<br>
+              1) <code>?need_include=Hello&need_include=World</code><br>
+              2) <code>?need_include=["Hello","World"]</code> （需 URL 编码）<br>
+              3) <code>?need_include=Hello,World</code><br>
+              全部匹配才整体 PASS。
+            </div>
+            <textarea id="textTarget" style="width:100%;height:520px;font-family:monospace;font-size:14px;box-sizing:border-box;resize:vertical;" placeholder="在这里粘贴或自动输入要检测的文本..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen QR Overlay -->
+  <div id="qrOverlay" class="qrovl" aria-hidden="true">
+    <div id="qrBox" class="qrbox"></div>
+    <div class="hint">QR code enlarged for reliable screenshot decoding. Click anywhere to close.</div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="common.js"></script>
+  <script>
+  ;(() => {
+    const qs = new URLSearchParams(location.search);
+    const testName = 'Text Includes Test';
+    const testManager = new window.__TestCommon({
+      testName,
+      runId: qs.get('run'),
+      startedAt: new Date().toISOString()
+    });
+
+    function parseNeedInclude() {
+      let raw = qs.getAll('need_include');
+      if (raw.length === 1) {
+        const single = raw[0];
+        if (single && single.trim().startsWith('[')) {
+          try { raw = JSON.parse(single); } catch { /* ignore */ }
+        } else if (single && single.includes(',')) {
+          raw = single.split(',');
+        }
+      }
+      // flatten & normalize
+      const arr = ([]).concat(raw).filter(x => typeof x === 'string' && x.trim().length > 0).map(s => s.trim());
+      const uniq = Array.from(new Set(arr));
+      return uniq;
+    }
+
+    const includesList = parseNeedInclude();
+    testManager.log('need_include parsed: ' + JSON.stringify(includesList));
+    testManager.setMeta('actions', includesList.length);
+
+    const $ta = document.getElementById('textTarget');
+
+    includesList.forEach((needle, idx) => {
+      testManager.registerAssertion(`include[${idx}] => ${needle}`, { includes: true, value: needle }, async () => {
+        const haystack = $ta.value;
+        const found = haystack.includes(needle);
+        return { includes: found, value: needle };
+      });
+    });
+
+    if (includesList.length === 0) {
+      testManager.registerAssertion('no requirements provided', { empty: true }, async () => ({ empty: true }));
+    }
+  })()
+  </script>
+</body>
+</html>
