@@ -115,6 +115,27 @@
           <a class="btn" href="./tests/test_window_size.html" target="_blank" rel="noopener">打开窗口尺寸测试页</a>
         </div>
       </div>
+
+      <div class="card">
+        <h2>⑦ Text Includes 字符串包含测试 <span class="small mono">tests/test_text_includes.html</span></h2>
+        <p>验证一个大文本区域内是否包含指定的多组字符串。所有字符串均被包含才整体 PASS；缺任意一个即 FAIL。</p>
+        <div class="cta">
+          <a class="btn" href="./tests/test_text_includes.html" target="_blank" rel="noopener">打开包含测试页</a>
+          <a class="btn secondary" href="./tests/test_text_includes.html?need_include=Hello&need_include=World" target="_blank" rel="noopener">示例（Hello & World）</a>
+        </div>
+        <ul>
+          <li>三种传参方式：
+            <div class="small mono" style="margin-top:4px;line-height:1.35">
+              1) ?need_include=Foo&need_include=Bar<br>
+              2) ?need_include=["Foo","Bar"] （需 URL 编码）<br>
+              3) ?need_include=Foo,Bar
+            </div>
+          </li>
+          <li>每个必含字符串单独注册断言：<code>{ includes: true, value: &lt;needle&gt; }</code></li>
+          <li>空参数时会生成一个占位断言（始终 PASS）。</li>
+          <li>适用于验证远程输入、粘贴、组合键编辑后文本结果是否包含关键片段。</li>
+        </ul>
+      </div>
     </div>
 
     <h2>Runner 侧推荐流程</h2>
