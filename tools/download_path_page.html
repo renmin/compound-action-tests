@@ -1,0 +1,10 @@
+<html><body>
+    <h1>Download Test</h1>
+    <a id="download-link" href="data:text/plain,This is test content for download verification" download="test-file.txt">Download Test File</a>
+    <p id="status">Ready</p>
+    <script>
+        document.getElementById('download-link').addEventListener('click', function() {
+            document.getElementById('status').textContent = 'Download clicked';
+        });
+    </script>
+</body></html>
