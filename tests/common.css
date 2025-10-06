@@ -146,8 +146,12 @@ h2 {
     font-family: ui-monospace, Menlo, Consolas, monospace;
     font-size: 12px;
     border-radius: 10px;
-    padding: 10px
+    padding: 10px;
+    max-width: 322px;
+    white-space: pre-wrap;
+    word-break: break-word
 }
+
 
 /* Split layout 3:7 (tunable) */
 .grid {
