@@ -178,7 +178,7 @@ class TestManager {
     }
     // 同步复制二维码文本到剪贴板
     this.copyToClipboard(text);
-    if (this.$qrOverlay) {
+    if (this.$qrOverlay && this.usingQRCode) {
       // show overlay
       this.$qrOverlay.classList.add('show');
       this.$qrOverlay.setAttribute('aria-hidden', 'false');
