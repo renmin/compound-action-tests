@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>JS Utilities — 获取 Cookie / Timezone / UserAgent</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans CJK SC", "Helvetica Neue", Arial; padding: 24px; background:#f7f9fc; color:#0b1220; }
+    .card { background: #fff; border-radius: 8px; padding: 18px; box-shadow: 0 6px 20px rgba(8,15,30,0.06); max-width:900px; margin: 12px auto; }
+    h1 { margin: 0 0 8px 0; font-size: 20px; }
+    .controls { display:flex; gap:8px; align-items:center; margin-top:12px; flex-wrap:wrap; }
+    select, input[type="text"], button { padding:8px 10px; border-radius:6px; border:1px solid #d6dbe8; background: #fff; font-size:14px; }
+    button { cursor:pointer; background:#2563eb; color:#fff; border:0; }
+    button.secondary { background: #e6eefc; color:#05306b; border:1px solid #d6e4ff; }
+    pre { background:#0b1220; color:#e6f0ff; padding:12px; border-radius:6px; overflow:auto; max-height:320px; }
+    .note { font-size:13px; color:#475569; margin-top:10px; }
+    .row { display:flex; gap:8px; margin-top:12px; }
+    .flex { flex:1; }
+    .small { font-size:13px; color:#334155; }
+    .warning { color:#92400e; background: #fff7ed; padding:8px; border-radius:6px; border:1px solid #ffd8a8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>调试工具：Cookie / Timezone / UserAgent</h1>
+    <div class="note">
+      可选择要执行的函数：获取全部 cookie、按名获取 cookie（例如尝试读取 Google 的 <code>NID</code>）、获取时区、获取 userAgent。注意：浏览器同源策略限制你只能读取当前页面所在域名可访问的 cookie，无法从普通页面直接读取 google.com 域下 cookie（除非页面就是在 google.com 下运行或浏览器允许跨站点 cookie）。
+    </div>
+
+    <div class="controls">
+      <label for="fnSelect">选择函数：</label>
+      <select id="fnSelect">
+        <option value="getAllCookies">获取全部 cookie（document.cookie）</option>
+        <option value="getCookieByName">按名获取 cookie（可填写 name）</option>
+        <option value="getTimeZone">获取时区（Intl API）</option>
+        <option value="getUserAgent">获取 User Agent</option>
+        <option value="getGoogleNID">尝试读取 Google NID cookie（name: NID / nid）</option>
+      </select>
+
+      <input id="cookieNameInput" type="text" placeholder="cookie 名称（只有选按名获取时使用）" style="min-width:260px" />
+
+      <button id="runBtn">运行</button>
+      <button id="clearBtn" class="secondary">清空输出</button>
+    </div>
+
+    <div class="row">
+      <div class="flex">
+        <h2 class="small">输出</h2>
+        <pre id="output" aria-live="polite">{ "ready": true }</pre>
+      </div>
+      <div style="width:210px">
+        <h2 class="small">操作</h2>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <button id="copyBtn" class="secondary">复制到剪贴板</button>
+          <button id="downloadBtn" class="secondary">下载 JSON</button>
+          <button id="openConsoleBtn" class="secondary">在 DevTools 打印（console.log）</button>
+        </div>
+        <div style="margin-top:12px" class="warning">
+          <strong>提示：</strong>
+          <div style="margin-top:6px; font-size:13px;">
+            若要实际读取 Google 的 <code>NID</code> cookie，请在浏览器打开 <code>https://www.google.com</code> 下运行此页面（或把页面放到同源环境），否则读取结果会为空。第三方/跨站 cookie 受浏览器隐私策略影响。
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ---------- 辅助函数 ----------
+    function parseDocumentCookie(cookieString) {
+      // 返回对象 map: { name: value, ... }
+      const out = {};
+      if (!cookieString || typeof cookieString !== 'string') return out;
+      // document.cookie 使用 ; 分隔
+      cookieString.split(';').forEach(pair => {
+        const idx = pair.indexOf('=');
+        if (idx === -1) return;
+        const name = pair.slice(0, idx).trim();
+        const value = pair.slice(idx + 1).trim();
+        try {
+          out[name] = decodeURIComponent(value);
+        } catch (e) {
+          out[name] = value;
+        }
+      });
+      return out;
+    }
+
+    function getCookie(name) {
+      if (!name) return null;
+      const cookies = parseDocumentCookie(document.cookie);
+      // cookie 名大小写敏感，根据实际情况尝试常见 variants
+      if (cookies.hasOwnProperty(name)) return cookies[name];
+      const lower = name.toLowerCase();
+      for (const k of Object.keys(cookies)) {
+        if (k.toLowerCase() === lower) return cookies[k];
+      }
+      return null;
+    }
+
+    function pretty(obj) {
+      try { return JSON.stringify(obj, null, 2); } catch (e) { return String(obj); }
+    }
+
+    // ---------- 具体功能 ----------
+    function getAllCookies() {
+      return { raw: document.cookie, parsed: parseDocumentCookie(document.cookie) };
+    }
+
+    function getTimeZone() {
+      const tz = (Intl && Intl.DateTimeFormat && Intl.DateTimeFormat().resolvedOptions) ?
+        Intl.DateTimeFormat().resolvedOptions().timeZone : null;
+      const now = new Date();
+      return {
+        timeZone: tz,
+        localISO: now.toISOString(),
+        localeString: now.toString(),
+        offsetMinutes: now.getTimezoneOffset(), // 注意：getTimezoneOffset 返回的是 “本地 - UTC” 的分钟数（通常为正数表示落后 UTC）
+      };
+    }
+
+    function getUserAgent() {
+      return {
+        userAgent: navigator.userAgent || null,
+        platform: navigator.platform || null,
+        appVersion: navigator.appVersion || null,
+        vendor: navigator.vendor || null,
+        languages: navigator.languages || (navigator.language ? [navigator.language] : null)
+      };
+    }
+
+    async function getGoogleNID() {
+      // 常见 Google cookie 名为 "NID"（大写），有时也可能是 nid
+      const namesToTry = ['NID', 'nid'];
+      const found = {};
+      namesToTry.forEach(n => {
+        found[n] = getCookie(n);
+      });
+      return {
+        note: '同源限制：只有当前页面域名有权限读取到的 cookie 才能返回，若在非 google.com 域下运行通常会为空。',
+        triedNames: namesToTry,
+        result: found,
+        documentCookieRaw: document.cookie // 方便调试
+      };
+    }
+
+    // ---------- UI 绑定 ----------
+    const outputEl = document.getElementById('output');
+    const fnSelect = document.getElementById('fnSelect');
+    const cookieNameInput = document.getElementById('cookieNameInput');
+    const runBtn = document.getElementById('runBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const copyBtn = document.getElementById('copyBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const openConsoleBtn = document.getElementById('openConsoleBtn');
+
+    function showResult(obj) {
+      const json = { timestamp: new Date().toISOString(), data: obj };
+      outputEl.textContent = pretty(json);
+      return json;
+    }
+
+    runBtn.addEventListener('click', async () => {
+      const sel = fnSelect.value;
+      try {
+        if (sel === 'getAllCookies') {
+          showResult(getAllCookies());
+        } else if (sel === 'getCookieByName') {
+          const name = cookieNameInput.value.trim();
+          if (!name) {
+            showResult({ error: '请在输入框填写 cookie 名称后再运行 "按名获取 cookie"' });
+            return;
+          }
+          showResult({ name, value: getCookie(name) });
+        } else if (sel === 'getTimeZone') {
+          showResult(getTimeZone());
+        } else if (sel === 'getUserAgent') {
+          showResult(getUserAgent());
+        } else if (sel === 'getGoogleNID') {
+          showResult(await getGoogleNID());
+        } else {
+          showResult({ error: '未知的函数' });
+        }
+      } catch (err) {
+        showResult({ error: String(err), stack: err && err.stack });
+      }
+    });
+
+    clearBtn.addEventListener('click', () => {
+      outputEl.textContent = '{ "ready": true }';
+    });
+
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(outputEl.textContent);
+        copyBtn.textContent = '已复制 ✓';
+        setTimeout(() => copyBtn.textContent = '复制到剪贴板', 1200);
+      } catch (e) {
+        alert('复制失败：' + e);
+      }
+    });
+
+    downloadBtn.addEventListener('click', () => {
+      const dataStr = outputEl.textContent;
+      const blob = new Blob([dataStr], { type: 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'debug-output-' + (new Date().toISOString().replace(/[:.]/g,'-')) + '.json';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    });
+
+    openConsoleBtn.addEventListener('click', () => {
+      try {
+        console.log('Debug output:', JSON.parse(outputEl.textContent));
+        openConsoleBtn.textContent = '已打印到 Console';
+        setTimeout(() => openConsoleBtn.textContent = '在 DevTools 打印（console.log）', 1200);
+      } catch (e) {
+        console.warn('打印失败（输出非 JSON）', e);
+      }
+    });
+
+    // 自动隐藏/显示 cookie name 输入框仅在需要时
+    function refreshCookieNameVisibility() {
+      cookieNameInput.style.display = (fnSelect.value === 'getCookieByName') ? 'inline-block' : 'none';
+    }
+    fnSelect.addEventListener('change', refreshCookieNameVisibility);
+    refreshCookieNameVisibility();
+
+    // 初始输出
+    showResult({ ready: true, location: location.href, note: '在此页面运行的脚本只能访问本页面同源的 cookie' });
+  </script>
+</body>
+</html>

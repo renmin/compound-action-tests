@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Anti-Scripts Debugger</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans CJK SC", Arial; background:#f6f8fb; color:#0b1730; padding:20px; }
+    .wrap { max-width:1100px; margin:0 auto; }
+    .card { background:#fff; border-radius:8px; padding:16px; box-shadow:0 6px 20px rgba(12,18,35,0.06); margin-bottom:14px; }
+    h1 { margin:0 0 6px 0; font-size:20px; }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    button { padding:8px 12px; border-radius:6px; border:0; background:#2563eb; color:#fff; cursor:pointer; }
+    button.ghost { background:#eef3ff; color:#0b1730; border:1px solid #d6e4ff; }
+    pre { background:#0b1220; color:#e6f0ff; padding:12px; border-radius:6px; max-height:360px; overflow:auto; }
+    .grid { display:grid; grid-template-columns: 1fr 360px; gap:12px; align-items:start; }
+    .small { font-size:13px; color:#475569; }
+    .flag { display:inline-block; padding:4px 8px; border-radius:999px; background:#fff3bf; color:#92400e; font-weight:600; margin-left:8px; }
+    label { font-size:13px; color:#334155; }
+    .row { display:flex; gap:8px; align-items:center; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Anti-Scripts 调试面板</h1>
+      <div class="small">
+        说明：本页面不会包含任何规避检测实现。请把你的两个脚本保存为 <code>anti_core.js</code> 和 <code>anti_page.js</code>（与本 HTML 同目录），页面会自动加载它们以便观测它们所做的改动。
+        <span class="flag">仅用于测试/调试</span>
+      </div>
+
+      <div class="controls" style="margin-top:12px;">
+        <!-- <button id="reloadScriptsBtn" class="ghost">重新加载脚本（并清空快照）</button> -->
+        <button id="runAllBtn">运行全部检测</button>
+        <button id="snapshotBtn">保存当前快照（JSON）</button>
+        <button id="copyBtn" class="ghost">复制结果</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2 class="small">诊断输出</h2>
+        <div style="display:flex; gap:8px; margin-bottom:8px;">
+          <button class="ghost" data-check="navigator">Navigator</button>
+          <button class="ghost" data-check="screen">Screen</button>
+          <button class="ghost" data-check="webgl">WebGL</button>
+          <button class="ghost" data-check="canvas">Canvas hash</button>
+          <button class="ghost" data-check="permissions">Permissions</button>
+          <button class="ghost" data-check="media">MediaDevices</button>
+          <button class="ghost" data-check="dateperf">Date/Performance</button>
+          <button class="ghost" data-check="chrome">window.chrome / createElement</button>
+        </div>
+
+        <pre id="output">{ "ready": true }</pre>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+  // ---------- 辅助：安全加载外部脚本 ----------
+  async function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+      try {
+        // remove any prior injected with same src
+        const existing = document.querySelector('script[data-debug-src="' + src + '"]');
+        if (existing) existing.remove();
+        const s = document.createElement('script');
+        s.async = false;
+        s.src = src;
+        s.setAttribute('data-debug-src', src);
+        s.onload = () => resolve({ src, ok: true });
+        s.onerror = (e) => reject(new Error('加载失败: ' + src));
+        document.head.appendChild(s);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  }
+
+  // ---------- 基础检查函数（不会做覆盖，仅读取并报告） ----------
+  function readNavigatorSnapshot() {
+    const nav = navigator || {};
+    const snapshot = {
+      // 基本属性
+      userAgent: nav.userAgent,
+      platform: nav.platform,
+      vendor: nav.vendor,
+      languages: Array.isArray(nav.languages) ? nav.languages.slice(0,10) : nav.languages,
+      webdriver: (() => {
+        try { return navigator.webdriver; } catch (e) { return String(e); }
+      })(),
+      // numeric props
+      hardwareConcurrency: nav.hardwareConcurrency,
+      deviceMemory: nav.deviceMemory,
+      maxTouchPoints: nav.maxTouchPoints,
+      // plugins (可能已被覆写)
+      pluginsLength: (() => { try { return navigator.plugins && navigator.plugins.length; } catch (e) { return String(e); } })(),
+      // chrome object existence
+      hasChromeObject: typeof window.chrome === 'object' || typeof window.chrome !== 'undefined'
+    };
+    return snapshot;
+  }
+
+  function readScreenSnapshot() {
+    try {
+      return {
+        width: screen.width,
+        height: screen.height,
+        availWidth: screen.availWidth,
+        availHeight: screen.availHeight,
+        colorDepth: screen.colorDepth,
+        pixelDepth: screen.pixelDepth
+      };
+    } catch (e) { return { error: String(e) }; }
+  }
+
+  function readConnectionSnapshot() {
+    try {
+      const c = navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+      if (!c) return { connection: null };
+      const out = {};
+      ['effectiveType','type','downlink','rtt','saveData'].forEach(k => { out[k] = c[k]; });
+      return out;
+    } catch (e) { return { error: String(e) }; }
+  }
+
+  function readPermissionsSnapshot() {
+    // We will try common permissions; note: permission.query may be overridden
+    const perms = ['notifications','geolocation','camera','microphone'];
+    const results = {};
+    const permObj = navigator.permissions && typeof navigator.permissions.query === 'function' ? navigator.permissions : null;
+    if (!permObj) {
+      perms.forEach(p => results[p] = 'permissions API 不可用');
+      return results;
+    }
+    return Promise.all(perms.map(async (p) => {
+      try {
+        const r = await permObj.query({ name: p });
+        return { name: p, state: r && r.state ? r.state : String(r) };
+      } catch (e) {
+        return { name: p, error: String(e) };
+      }
+    })).then(arr => arr.reduce((acc, cur) => { acc[cur.name] = cur.state || cur.error || cur; return acc; }, {}));
+  }
+
+  function readWebGLInfo() {
+    try {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+      if (!gl) return { webgl: false };
+      const dbgRenderInfo = gl.getExtension('WEBGL_debug_renderer_info');
+      const vendor = dbgRenderInfo ? gl.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL) : 'unknown';
+      const renderer = dbgRenderInfo ? gl.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL) : 'unknown';
+      // also call getParameter(37445/37446) to show possible spoof
+      const p37445 = tryGet(gl, 37445);
+      const p37446 = tryGet(gl, 37446);
+      return { vendor, renderer, p37445, p37446 };
+    } catch (e) { return { error: String(e) }; }
+    function tryGet(gl, param) {
+      try { return gl.getParameter(param); } catch (e) { return String(e); }
+    }
+  }
+
+  // canvas fingerprint-ish quick hash (for debugging changes to toDataURL)
+  function canvasHash() {
+    const c = document.createElement('canvas');
+    c.width = 64; c.height = 64;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#123456';
+    ctx.fillRect(0,0,64,64);
+    ctx.fillStyle = '#abcdef';
+    ctx.fillRect(8,8,48,48);
+    const data = c.toDataURL();
+    // quick hash: djb2
+    let h = 5381;
+    for (let i=0;i<data.length;i++) h = ((h<<5)+h) + data.charCodeAt(i);
+    return { length: data.length, hash: (h >>> 0).toString(16) };
+  }
+
+  function readDatePerformance() {
+    const tzOffset = new Date().getTimezoneOffset();
+    const perfNow = (typeof performance !== 'undefined' && typeof performance.now === 'function') ? performance.now() : null;
+    return { timezoneOffset: tzOffset, performanceNow: perfNow };
+  }
+
+  function readCreateElementOverride() {
+    try {
+      const desc = Object.getOwnPropertyDescriptor(document, 'createElement') || Object.getOwnPropertyDescriptor(Document.prototype, 'createElement');
+      // If descriptor exists and is not native, show that
+      return { descriptor: !!desc, descriptorToString: desc ? String(desc.value || desc.get || desc.set) : null };
+    } catch (e) { return { error: String(e) }; }
+  }
+
+  function readAddEventListenerToString() {
+    try {
+      const fn = EventTarget.prototype.addEventListener;
+      return { toString: Function.prototype.toString.call(fn).slice(0,500) };
+    } catch (e) { return { error: String(e) }; }
+  }
+
+  function readMediaDevices() {
+    try {
+      return {
+        hasMediaDevices: !!(navigator.mediaDevices),
+        getUserMediaType: navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? typeof navigator.mediaDevices.getUserMedia : 'n/a'
+      };
+    } catch (e) { return { error: String(e) }; }
+  }
+
+  // Dump window.chrome keys (safely)
+  function readChromeObject() {
+    try {
+      if (typeof window.chrome === 'undefined') return { chrome: null };
+      const keys = Object.keys(window.chrome).slice(0,50);
+      return { chromeType: typeof window.chrome, keys };
+    } catch (e) { return { error: String(e) }; }
+  }
+
+  // ---------- 主执行逻辑 ----------
+  const outputEl = document.getElementById('output');
+
+  function show(obj) {
+    outputEl.textContent = JSON.stringify(obj, null, 2);
+  }
+
+  async function runAllChecks() {
+    const out = {};
+    out.navigator = readNavigatorSnapshot();
+    out.screen = readScreenSnapshot();
+    out.connection = readConnectionSnapshot();
+    out.webgl = readWebGLInfo();
+    out.canvas = canvasHash();
+    out.dateperf = readDatePerformance();
+    out.createElement = readCreateElementOverride();
+    out.addEventListener = readAddEventListenerToString();
+    out.media = readMediaDevices();
+    out.chrome = readChromeObject();
+    // permissions is async
+    out.permissions = 'pending';
+    show(out);
+    try {
+      const p = await readPermissionsSnapshot();
+      out.permissions = p;
+      show(out);
+      return out;
+    } catch (e) {
+      out.permissions = { error: String(e) };
+      show(out);
+      return out;
+    }
+  }
+
+  // ---------- UI 绑定 ----------
+  document.querySelectorAll('button[data-check]').forEach(btn => {
+    btn.addEventListener('click', async (ev) => {
+      const name = btn.getAttribute('data-check');
+      let result;
+      if (name === 'navigator') result = readNavigatorSnapshot();
+      else if (name === 'screen') result = readScreenSnapshot();
+      else if (name === 'webgl') result = readWebGLInfo();
+      else if (name === 'canvas') result = canvasHash();
+      else if (name === 'permissions') result = await readPermissionsSnapshot();
+      else if (name === 'media') result = readMediaDevices();
+      else if (name === 'dateperf') result = readDatePerformance();
+      else if (name === 'chrome') result = { chrome: readChromeObject(), createElement: readCreateElementOverride() };
+      show({ timestamp: new Date().toISOString(), check: name, result });
+    });
+  });
+
+  document.getElementById('runAllBtn').addEventListener('click', () => {
+    runAllChecks();
+  });
+
+  document.getElementById('loadBtn').addEventListener('click', async () => {
+    const core = document.getElementById('corePath').value.trim() || 'anti_core.js';
+    const page = document.getElementById('pagePath').value.trim() || 'anti_page.js';
+    try {
+      await loadScriptOnce(core);
+      await loadScriptOnce(page);
+      // small delay to let scripts run
+      setTimeout(() => {
+        runAllChecks();
+        alert('脚本已加载并执行，诊断已运行。请查看下方输出。');
+      }, 250);
+    } catch (e) {
+      alert('加载脚本失败：' + e);
+    }
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    // attempt to reset DOM-injected scripts only (does not revert prototype changes)
+    document.querySelectorAll('script[data-debug-src]').forEach(s => s.remove());
+    show({ clearedAt: new Date().toISOString(), note: '已移除通过本页面注入的 <script> 标签。注意：如果脚本修改了内置原型（prototype），这些改动不会被自动回退。' });
+  });
+
+//   document.getElementById('reloadScriptsBtn').addEventListener('click', async () => {
+//     document.querySelectorAll('script[data-debug-src]').forEach(s => s.remove());
+//     // reload paths
+//     const core = document.getElementById('corePath').value.trim() || 'anti_core.js';
+//     const page = document.getElementById('pagePath').value.trim() || 'anti_page.js';
+//     try {
+//       await loadScriptOnce(core);
+//       await loadScriptOnce(page);
+//       setTimeout(() => runAllChecks(), 250);
+//     } catch (e) {
+//       alert('重新加载失败：' + e);
+//     }
+//   });
+
+  document.getElementById('snapshotBtn').addEventListener('click', async () => {
+    const data = await runAllChecks();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'anti-debug-snapshot-' + (new Date().toISOString().replace(/[:.]/g,'-')) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('copyBtn').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(outputEl.textContent);
+      alert('已复制到剪贴板');
+    } catch (e) {
+      alert('复制失败：' + e);
+    }
+  });
+
+  // 初始显示
+  show({ ready: true, note: '请先用 "加载并执行脚本" 按钮加载你的 anti 脚本文件（同目录），或直接点击各项检测按钮。' });
+  </script>
+</body>
+</html>
