@@ -11,7 +11,7 @@
     <div class="grid">
       <div class="left">
         <h1>test_window_size</h1>
-        <p class="muted">Checks if window.outerWidth is between 1279 and 1280, and window.outerHeight is between 959 and 960.</p>
+        <p class="muted">Checks if window size is within the specified range (configurable via URL parameters).</p>
         <div class="card">
           <h2>Run Meta</h2>
           <div class="kvs" id="meta">
@@ -38,7 +38,16 @@
       <div class="right">
         <div class="card">
           <h2>Validation Stage</h2>
-          <div id="stage" class="stage">No UI controls needed for this test.</div>
+          <div id="stage" class="stage">
+            <div style="font-family:monospace;font-size:14px;line-height:1.8;">
+              <div><strong>Window Outer Size:</strong> <span id="outerSize">—</span></div>
+              <div><strong>Window Inner Size:</strong> <span id="innerSize">—</span></div>
+              <div><strong>Window Position:</strong> <span id="position">—</span></div>
+              <div><strong>Screen Size:</strong> <span id="screenSize">—</span></div>
+              <div><strong>Available Screen:</strong> <span id="availScreen">—</span></div>
+              <div><strong>Device Pixel Ratio:</strong> <span id="dpr">—</span></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -62,16 +71,41 @@
       startedAt: new Date().toISOString()
     });
 
+    // 获取参数，设置默认值
+    const minWidth = parseInt(qs.get('min_width') || '1150', 10);
+    const maxWidth = parseInt(qs.get('max_width') || '1280', 10);
+    const minHeight = parseInt(qs.get('min_height') || '860', 10);
+    const maxHeight = parseInt(qs.get('max_height') || '960', 10);
+
+    // 更新窗口信息显示
+    function updateWindowInfo() {
+      document.getElementById('outerSize').textContent = `${window.outerWidth} × ${window.outerHeight}`;
+      document.getElementById('innerSize').textContent = `${window.innerWidth} × ${window.innerHeight}`;
+      document.getElementById('position').textContent = `(${window.screenX}, ${window.screenY})`;
+      document.getElementById('screenSize').textContent = `${screen.width} × ${screen.height}`;
+      document.getElementById('availScreen').textContent = `${screen.availWidth} × ${screen.availHeight}`;
+      document.getElementById('dpr').textContent = window.devicePixelRatio || 1;
+    }
+
+    // 初始更新
+    updateWindowInfo();
+
+    // 监听窗口大小和位置变化
+    window.addEventListener('resize', updateWindowInfo);
+    window.addEventListener('move', updateWindowInfo);
+
+    testManager.log(`Parameters: minWidth=${minWidth}, maxWidth=${maxWidth}, minHeight=${minHeight}, maxHeight=${maxHeight}`);
     testManager.log('window.outerWidth=' + window.outerWidth + ', window.outerHeight=' + window.outerHeight);
+
     testManager.registerAssertion(
-      'window.outerWidth between 1279 and 1280',
+      `window.outerWidth between ${minWidth} and ${maxWidth}`,
       { pass: true },
-      async () => ({ pass: window.outerWidth >= 1279 && window.outerWidth <= 1280 })
+      async () => ({ pass: window.outerWidth >= minWidth && window.outerWidth <= maxWidth })
     );
     testManager.registerAssertion(
-      'window.outerHeight between 959 and 960',
+      `window.outerHeight between ${minHeight} and ${maxHeight}`,
       { pass: true },
-      async () => ({ pass: window.outerHeight >= 959 && window.outerHeight <= 960 })
+      async () => ({ pass: window.outerHeight >= minHeight && window.outerHeight <= maxHeight })
     );
   })()
   </script>

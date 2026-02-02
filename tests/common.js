@@ -42,6 +42,19 @@ class TestManager {
     const btn = document.getElementById('btn-verify');
     if (btn) {
       btn.addEventListener('click', () => this.runAssertions());
+
+      // 让包含按钮的 .card 也可点击触发 assertions
+      const card = btn.closest('.card');
+      if (card) {
+        card.style.cursor = 'pointer';
+        card.addEventListener('click', (e) => {
+          // 如果点击的是交互元素，不触发
+          if (['INPUT', 'TEXTAREA', 'BUTTON', 'A', 'SELECT'].includes(e.target.tagName)) {
+            return;
+          }
+          this.runAssertions();
+        });
+      }
     }
   }
 
