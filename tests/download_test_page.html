@@ -30,6 +30,11 @@
             border: 1px solid #ddd;
             border-radius: 5px;
             background-color: #fafafa;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .download-section:hover {
+            background-color: #f0f0f0;
         }
         .download-section h3 {
             margin: 0 0 10px 0;
@@ -212,6 +217,21 @@
             document.getElementById('status').textContent = '✅ Markdown download started - test_file.md';
             document.getElementById('status').style.backgroundColor = '#e2e3e5';
             document.getElementById('status').style.color = '#383d41';
+        });
+
+        // 让 download-section 区域也可点击，触发内部按钮
+        document.querySelectorAll('.download-section').forEach(section => {
+            section.addEventListener('click', function(e) {
+                // 如果点击的是按钮本身，不重复触发
+                if (e.target.classList.contains('download-button')) {
+                    return;
+                }
+                // 找到区域内的按钮并触发点击
+                const button = this.querySelector('.download-button');
+                if (button) {
+                    button.click();
+                }
+            });
         });
 
         // 重置状态按钮
